@@ -6,5 +6,8 @@
     <title>Design World</title>
 </head>
 <body>
-    <h1>DESIGN WORlD</h1>
+    <h1>DESIGN WORLD</h1>
+    <p>Welcome, {{ current_user.username }}!</p>
+    <a href="{{ url_for('logout') }}">Logout</a>
 </body>
+</html>
