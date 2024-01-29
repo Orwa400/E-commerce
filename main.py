@@ -4,12 +4,14 @@ from flask_wtf import FlaskForm
 from wtforms import StringField, SubmitField
 from wtforms.validators import DataRequired
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from flask_migrate import Migrate
 
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = '07574674420722653976'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///site.db'
 db = SQLAlchemy(app)
+migrate = Migrate(app, db)
 login_manager =LoginManager(app)
 login_manager.login_view = 'login'
 
@@ -25,7 +27,7 @@ class Product(db.Model):
 # Forms
 class LoginForm(FlaskForm):
     username = StringField('Username', validators=[DataRequired()])
-    submit = SubmitFiels('LOgin')
+    submit = SubmitField('Login')
 
 # Routes
 @app.route('/')
@@ -55,6 +57,8 @@ def login():
             return redirect(url_for("designer"))
         else:
             flash('Login unsuccessful. Please check your username.', 'danger')
+
+    return render_template('login.html', form=form)
 
 @app.route('/logout')
 @login_required
