@@ -1,7 +1,7 @@
 from flask import Flask, render_template, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf import FlaskForm
-from wtforms import StringField, SubmitField
+from wtforms import StringField, SubmitField, TextAreaField, FloatField
 from wtforms.validators import DataRequired
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_migrate import Migrate
@@ -25,7 +25,7 @@ class Product(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
     description = db.Column(db.Text, nullable=True)
-    price = db.Column(db.float, nullable=False)
+    price = db.Column(db.Float, nullable=False)
 
     def __rep__(self):
         return f"<Product {self.name}>"
