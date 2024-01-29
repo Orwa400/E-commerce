@@ -1,5 +1,5 @@
 import unittest
-from app import app, db, user, Product
+from main import app, db, User, Product, LoginForm
 
 class TestApp(unittest.TestCase):
 
@@ -8,12 +8,15 @@ class TestApp(unittest.TestCase):
         app.config['TESTING'] = True
         app.config['SQlALchemy_DATABSE_URI'] = 'sqlite:///:memory:'
         self.app = app.test_client()
-        db.create_all()
 
+        with app.app_context():
+            db.create_all()
 
+        
     def tearDown(self):
-        db.session.remove()
-        db.drop_all
+        with app.app_context():
+            db.session.remove()
+            db.drop_all
 
     def test_home_page(self):
         response = self.app.get('/')
@@ -22,7 +25,7 @@ class TestApp(unittest.TestCase):
 
     def test_products_page(self):
         response = self.app.get('/products')
-        self.assertEqual(response.staus_code, 200)
+        self.assertEqual(response.status_code, 200)
         self.assertIn(b'Products', response.data)
 
 if __name__ == '__main__':
