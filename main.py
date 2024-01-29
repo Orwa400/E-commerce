@@ -29,7 +29,12 @@ class Product(db.Model):
 
     def __rep__(self):
         return f"<Product {self.name}>"
-        
+
+class ProductForm(FlaskForm):
+    name = StringField('Name', validators=[DataRequired()])
+    description = TextAreaField('Description')
+    price = FloatField('Price', validators=[DataRequired()])
+    submit = SubmitField('Add Product')
 
 # Forms
 class LoginForm(FlaskForm):
@@ -46,6 +51,25 @@ def home():
 def products():
     products = Product.query.all()
     return render_template('products.html')
+
+@app.route('/add_product', methods=['GET', 'POST'])
+def add_product():
+    form = ProductForm()
+
+    if form.validate_on_submit():
+        new_product = Product(
+            name = form.name.data,
+            description = form.description.data,
+            price = form.price.data
+        )
+
+        db.session.add(new_product)
+        db.session.commit()
+
+        flash('Product added succesfully!', 'success')
+        return redirect(url_for('home'))
+
+    return render_template('add_product.html', form=form)
 
 @app.route('/designer')
 @login_required
