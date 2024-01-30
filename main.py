@@ -41,8 +41,17 @@ class Order(db.Model):
 class OrderItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     order_id = db.Column(db.Integer, db.ForeignKey('order.id'), nullable=False)
-    product_id = db.COlumn(db.Integer, db.FOreignKey('product.id'), nullable=False)
+    product_id = db.COlumn(db.Integer, db.ForeignKey('product.id'), nullable=False)
     quantity = db.Column(db.Integer, nullable=False)
+
+class Cart(db.Model):
+    id = db.column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
+    quantity = db.Column(db.Integer, nullable=False, default=1)
+
+    product = db.relationship('Product', backref='carts')
+    user = db.relationship('User', backref='carts')
 
     
 # Forms
@@ -149,6 +158,43 @@ def cart():
     cart_items = OrderItem.query.all()
     return render_template('cart.html', cart_items, form=form)
 
+@app.route('cart')
+@login_required
+def view_cart():
+    user_cart = Cart.query.filter_by(user_id=current_user.id).all()
+    total_price = sum(item.product.price * item.quantity for item in user_cart)
+    return render_template('cart.html', cart=user_cart, total_price=total_price)
+    
+@app.route('/add_to_cart/<int:product_id>', methods=['POST'])
+@login_required
+def add_to_cart(product_id):
+    product =Product.query.get_or_400(product_id)
+    cart_item = Cart.query.filter_by(user_id=current_user.id, product_id=product.id).first()
+
+    if cart_item:
+        cart_item.quantity += 1
+    else:
+        new_cart_item = Cart(user_id=current_user.id, product_id=product.id)
+        db.session.add(new_cart_item)
+
+    db.session.commit()
+    flash('Product added to cart successfully!', 'success')
+    return redirect(url_for('products'))
+
+@app.route('/remove_from_cart/<int:cart_id>', methods=['POST'])
+@login_required
+def remove_from_cart(cart_id):
+    cart_item.quantity = Cart.query.get_or404(cart_id)
+
+
+    if cart_item.quantity > 1:
+        cart_item.quantity -= 1
+    else:
+        db.session.delete(cart_item)
+
+    db.session.commit()
+    flash('Product removed from cart successfully!', 'success')
+    return redirect (url_for('view_cart'))
 
 @app.route('/add_product', methods=['GET', 'POST'])
 def add_product():
