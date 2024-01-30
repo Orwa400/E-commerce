@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Design World</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</head>
+<body>
+    <h1>Login</h1>
+    <form method="post">
+        {{ form.hidden_tag() }}
+        {{ form.username.label }} {{ form.username(size=20) }}<br>
+        {{ form.submit }}
+    </form>
+    <a href="{{ url_for('home') }}">Back to Home</a>
+</body>
