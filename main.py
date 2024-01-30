@@ -1,4 +1,4 @@
-from flask import Flask, render_template, redirect, url_for, flash
+from flask import Flask, render_template, redirect, url_for, flash, jsonify
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf import FlaskForm
 from wtforms import StringField, SubmitField, TextAreaField, FloatField, IntegerField, PasswordField
@@ -6,11 +6,13 @@ from wtforms.validators import DataRequired, Length
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_migrate import Migrate
 from werkzeug.security import generate_password_hash, check_password_hash
-
+import stripe
+from flask_paginate import Pagination
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = '07574674420722653976'
+app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY')
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///site.db'
+stripe.api_key = ''
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 login_manager =LoginManager(app)
@@ -99,7 +101,7 @@ def register():
 
     form = RegistrationForm()
     if form.validate_on_submit():
-        hasged_password = generate_password_hash(form.password.data, method='sha256')
+        hashed_password = generate_password_hash(form.password.data, method='sha256')
         new_user = User(username=form.username.data, email=form.email.data, password=hashed_password)
         db.session.add(new_user)
         db.session.commit()
@@ -153,27 +155,24 @@ def products():
 
 @app.route('/cart', methods=['GET', 'POST'])
 def cart():
-    form = OrderForm()
-    if form.validate_on_submit():
-        product_id = form.product_id.data
-        quantity =form.quantity.data
+    if request.method == 'POST':
+        form = OrderForm()
+        if form.validate_on_submit():
+            product_id = form.product_id.data
+            quantity =form.quantity.data
 
-        product = Product.query.get(product_id)
-        if product:
-            order_item = OrderItem(product=product, quantity=quantity)
-            db.session.add(order_item)
-            db.session.commit()
-            return redirect(url_for('cart'))
+            product = Product.query.get(product_id)
+            if product:
+                order_item = OrderItem(product=product, quantity=quantity)
+                db.session.add(order_item)
+                db.session.commit()
+                return redirect(url_for('cart'))
+    
+    elif request.method == 'GET':
+        form = OrderForm()
+        cart_items = OrderItem.query.all()
+        return render_template('cart.html', cart_items, form=form)
 
-    cart_items = OrderItem.query.all()
-    return render_template('cart.html', cart_items, form=form)
-
-@app.route('cart')
-@login_required
-def view_cart():
-    user_cart = Cart.query.filter_by(user_id=current_user.id).all()
-    total_price = sum(item.product.price * item.quantity for item in user_cart)
-    return render_template('cart.html', cart=user_cart, total_price=total_price)
     
 @app.route('/add_to_cart/<int:product_id>', methods=['POST'])
 @login_required
@@ -237,6 +236,49 @@ def confirm_order():
 
     db.session.commit()
     flash('Order confirmed successfully! You will recieve an email with order details.' 'success')
+    return redirect(url_for('index'))
+
+@app.route('/checkout', methods=['POST'])
+@login_required
+def checkout():
+    # Retrieve items from the user's cart
+    user_cart = Cart.query.filter_by(user_id=current_user.id)
+
+    if not user_cart:
+        flash('Your cart is empty. Add products before checking out.', 'warning')
+        return redirect(url_for('view_cart'))
+
+    # Calculate total price
+    total_price= sum(item.product.price * item.quantity for item in user_cart)
+
+    # Create a Stripe Checkout
+    session = stripe.checkout.Session.create(
+        payment_method_types=['card'],
+        line_items=[
+            {
+                'price_data': {
+                    'currency': 'usd',
+                    'product_data': {
+                        'name': item.ptoduct.name,
+                    },
+                    'unit_amount': int(item.product.price * 100),
+                },
+                'quantity': item.quantity,
+            } for item in user_cart
+        ],
+        mode='payment',
+        success_url=urlfor('payment_success', _external=True),
+        cancel_url=url_for('payment_cancel', external=True),
+    )
+
+    return jsonify({'id': session.id})
+
+
+@app.route('/payment/cancel')
+@login_required
+def payment_cancel():
+    flash('Payment canceled. Your order has not been processed.', 'danger')
+    return redirect(url_for('view_cart'))
 
 
 
