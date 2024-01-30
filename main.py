@@ -20,8 +20,8 @@ login_manager.login_view = 'login'
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(20), unique=True, nullable=False)
-    email = db.Column(dbString(120), unique=True, nullable=False)
-    password = db.column(db.string(60), nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password = db.Column(db.String(60), nullable=False)
     orders = db.relationship('Order', backref='user', lazy=True)
 
 
@@ -34,18 +34,28 @@ class Product(db.Model):
 
 class Order(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.COlumn(db.Integer, db.ForeignKey('user.id', nullable=False))
-    items = dbrelationship('OrderItem', backref='order', lazy=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id', nullable=False))
+    items = db.relationship('OrderItem', backref='order', lazy=True)
+    total_price = db.Column(db.DateTime, default=datetime.utcnow)
+    products = db.relationship('OrderProduct', backref='order', lazy=True)
+
+class OrderProduct(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    order_id = db.Column(db.Integer, db.ForeignKey('order.id'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
+    quantity = db.Column(db.Integer, nullable=False)
+
+    product = db.relationship('Product', backref='order_products')
 
 
 class OrderItem(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     order_id = db.Column(db.Integer, db.ForeignKey('order.id'), nullable=False)
-    product_id = db.COlumn(db.Integer, db.ForeignKey('product.id'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
     quantity = db.Column(db.Integer, nullable=False)
 
 class Cart(db.Model):
-    id = db.column(db.Integer, primary_key=True)
+    id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     product_id = db.Column(db.Integer, db.ForeignKey('product.id'), nullable=False)
     quantity = db.Column(db.Integer, nullable=False, default=1)
@@ -196,6 +206,40 @@ def remove_from_cart(cart_id):
     flash('Product removed from cart successfully!', 'success')
     return redirect (url_for('view_cart'))
 
+@app.route('/review_order')
+@login_required
+def review_order():
+    user_cart = Cart.query.filter_by(user_id=current_user.id)
+    total_price = sum(item.product.price * item.quantity for item in user_cart)
+    return render_template('review_order.html', cart=user_cart, totla_price=total_price)
+
+@app.route('/confirm_order', methods=['POST'])
+@login_required
+def confirm_order():
+    user_cart = Cart.query.filter_by(user_id=current_user.id)
+    if not user_cart:
+        flash('Your cart is empty. Add products before confirming the order.', 'warning')
+        return redirect(url_for('view_cart'))
+
+    total_price = sum(item.product.price * item.quantity for item in user.cart)
+
+    # To Create an order
+    new_order = Order(user_id=current_user.id, total_price=total_price)
+    db.session.add(new_order)
+
+    # Move items from Cart to order
+    for item in user_cart:
+        order_product = OrderProduct(order=new_order, product=item.product, quantity=item.quantity)
+        db.session.add(order_product)
+
+    # Clear the user's cart
+    Cart.query.filter_by(user_id=current_user.id).delete()
+
+    db.session.commit()
+    flash('Order confirmed successfully! You will recieve an email with order details.' 'success')
+
+
+
 @app.route('/add_product', methods=['GET', 'POST'])
 def add_product():
     form = ProductForm()
@@ -235,7 +279,6 @@ def delete_product(product_id):
     db.session.commit()
     flash('Product has been deleted successfully!', 'success')
     return redirect(url_for('products'))
-
 
 @login_manager.user_loader
 def load_user(user_id):
