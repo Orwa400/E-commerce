@@ -1,10 +1,11 @@
 from flask import Flask, render_template, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
 from flask_wtf import FlaskForm
-from wtforms import StringField, SubmitField, TextAreaField, FloatField, IntegerField
-from wtforms.validators import DataRequired
+from wtforms import StringField, SubmitField, TextAreaField, FloatField, IntegerField, PasswordField
+from wtforms.validators import DataRequired, Length
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_migrate import Migrate
+from werkzeug.security import generate_password_hash, check_password_hash
 
 
 app = Flask(__name__)
@@ -44,16 +45,16 @@ class OrderItem(db.Model):
     quantity = db.Column(db.Integer, nullable=False)
 
     
-
-class ProductForm(FlaskForm):
-    name = StringField('Name', validators=[DataRequired()])
-    description = TextAreaField('Description')
-    price = FloatField('Price', validators=[DataRequired()])
-    submit = SubmitField('Add Product')
-
 # Forms
+class RegistrationForm(FlaskForm):
+    username = StringField('Username', validators=[DataRequired(), Length(min=2, max=20)])
+    email = StringField('Email', validators=[DataRequired(), Length(min=5, max=120)])
+    password = PasswordField('Password', validators=[DataRequired()])
+    submit = SubmitField('Sign Up')
+
 class LoginForm(FlaskForm):
-    username = StringField('Username', validators=[DataRequired()])
+    email = StringField('Email', validators=[DataRequired(), Length(min=5, max=120)])
+    password = PasswordField('Password', validators=[DataRequired()])
     submit = SubmitField('Login')
 
 class ProductForm(FlaskForm):
@@ -65,13 +66,53 @@ class ProductForm(FlaskForm):
 class OrderForm(FlaskForm):
     product_id = IntegerField('Product ID', validators=[DataRequired()])
     quantity = IntegerField('Quantity', validators=[DataRequired()])
-    submit = SubmitField('ADD to Cart')
-
+    submit = SubmitField('Add to Cart')
 
 # Routes
 @app.route('/')
 def home():
     return render_template('index.html')
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if current_user.is_authenticated:
+        return redirect(url_for('home'))
+
+    form = RegistrationForm()
+    if form.validate_on_submit():
+        hasged_password = generate_password_hash(form.password.data, method='sha256')
+        new_user = User(username=form.username.data, email=form.email.data, password=hashed_password)
+        db.session.add(new_user)
+        db.session.commit()
+        flash('Your account has been created! You can now log in.', 'success')
+        return redirect(url_for('login'))
+
+    return render_template('register.html', form=form)
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if current_user.is_authenticated:
+        return redirect(url_for('home'))
+
+    form = LoginForm()
+    if form.validate_on_submit():
+        user = User.query.filter_by(email=form.email.data).first()
+        if user and check_password_hash(user.password, form.password.data):
+            login_user(user, remember=False)
+            flash('Login successful!', 'succcess')
+            return redirect(url_for('home'))
+        else:
+            flash('Login unsuccessful. Please check email and password', 'danger')
+
+    return render_template('login.html', form=form)
+
+@app.route('/logout')
+@login_required
+def logout():
+    logout_user()
+    flash('You have been logged out.', 'info')
+    return redirect(url_for('home'))
+
 
 
 @app.route('/products', method=['GET', 'POST'])
@@ -90,6 +131,7 @@ def products():
     products = Product.query.all()
     return render_template('products.html', products=products, form=form)
 
+
 @app.route('/cart', methods=['GET', 'POST'])
 def cart():
     form = OrderForm()
@@ -106,7 +148,7 @@ def cart():
 
     cart_items = OrderItem.query.all()
     return render_template('cart.html', cart_items, form=form)
-    
+
 
 @app.route('/add_product', methods=['GET', 'POST'])
 def add_product():
@@ -127,36 +169,33 @@ def add_product():
 
     return render_template('add_product.html', form=form)
 
-@app.route('/designer')
+@app.route('/product/new', methods['GET', 'POST'])
 @login_required
-def designer():
-    return render_template('designer.html')
-
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    form = LoginForm()
-
+def new_product():
+    form = ProductForm()
     if form.validate_on_submit():
-        user = User.query.filter_by(username=form.username.data).first()
-        if user:
-            login_user(user)
-            flash('Login successful!', 'succcess')
-            return redirect(url_for("designer"))
-        else:
-            flash('Login unsuccessful. Please check your username.', 'danger')
+        new_product = Product(name=form.name.data, description=form.description.data, price=form.price.data)
+        db.session.add(new_product)
+        db.session.commit()
+        flash('Producct has been added successfully!', 'success')
+        return redirect(url_for('products'))
 
-    return render_template('login.html', form=form)
+    return render_template('new_product.html', form=form)
 
-@app.route('/logout')
-@login_required
-def logout():
-    logout_user()
-    flash('You have been logged out.', 'info')
-    return redirect(url_for('home'))
+@app.route('/product/delete/<int:product_id>', methods=['POST'])
+def delete_product(product_id):
+    product = Product.query.get_or_404(product_id)
+    db.session.delete(product)
+    db.session.commit()
+    flash('Product has been deleted successfully!', 'success')
+    return redirect(url_for('products'))
+
 
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
+
+
 
 
 if __name__ == '__main__':
