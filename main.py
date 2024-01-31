@@ -6,13 +6,14 @@ from wtforms.validators import DataRequired, Length
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 from flask_migrate import Migrate
 from werkzeug.security import generate_password_hash, check_password_hash
-import stripe
+import os
+from paypalrestsdk import Payment
+from datetime import datetime
 from flask_paginate import Pagination
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY')
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///site.db'
-stripe.api_key = ''
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 login_manager =LoginManager(app)
@@ -239,46 +240,55 @@ def confirm_order():
     return redirect(url_for('index'))
 
 @app.route('/checkout', methods=['POST'])
-@login_required
-def checkout():
-    # Retrieve items from the user's cart
-    user_cart = Cart.query.filter_by(user_id=current_user.id)
+def initiate_payment():
+    # Set up the payment details using paypal SDK
+    payment = Payment({
+        "intent": "sale",
+        "payer": {
+            "payment_method": "paypal",
+        },
+        "redirect_urls": {
+            "return_url": url_for('payment_success', _external=True),
+            "cancel_url": url_for('payment_cancel', _external=True),
+        },
+        "transactions": [{
+            "item_list": {
+                "items": [{
+                    "name": "Product Name",
+                    "sku": str(item.product.id),
+                    "price": str(item.product.price),
+                    "currency": "USD",
+                    "quantity": item.quantity
+                } for item in user_cart]
+            },
+            "amount": {
+                "total": str(total_price),
+                "currency" : "USD"
+            },
+            "description": "Payment for products"
+        }]
+    })
 
-    if not user_cart:
-        flash('Your cart is empty. Add products before checking out.', 'warning')
-        return redirect(url_for('view_cart'))
+    if payment.create():
+        # Redirect the user to PayPAl for approval
+        for link in payment.links:
+            if link.method == "REDIRECT":
+                redirect_url = str(link.href)
+                return jsonify({'redirect_url': redirect_url})
 
-    # Calculate total price
-    total_price= sum(item.product.price * item.quantity for item in user_cart)
+    else:
+        flash('Failed to create Paypal payment.', 'danger')
 
-    # Create a Stripe Checkout
-    session = stripe.checkout.Session.create(
-        payment_method_types=['card'],
-        line_items=[
-            {
-                'price_data': {
-                    'currency': 'usd',
-                    'product_data': {
-                        'name': item.ptoduct.name,
-                    },
-                    'unit_amount': int(item.product.price * 100),
-                },
-                'quantity': item.quantity,
-            } for item in user_cart
-        ],
-        mode='payment',
-        success_url=urlfor('payment_success', _external=True),
-        cancel_url=url_for('payment_cancel', external=True),
-    )
+    return redirect(url_for('view_cart'))
 
-    return jsonify({'id': session.id})
-
-
-@app.route('/payment/cancel')
+@app.route('/payment/success')
 @login_required
 def payment_cancel():
-    flash('Payment canceled. Your order has not been processed.', 'danger')
+    flash('Payment canceled. Your order has not been processed.')
     return redirect(url_for('view_cart'))
+    
+
+
 
 
 
