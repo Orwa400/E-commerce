@@ -10,10 +10,18 @@ import os
 from paypalrestsdk import Payment
 from datetime import datetime
 from flask_paginate import Pagination
+import paypalrestsdk
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.environ.get('FLASK_SECRET_KEY')
+app.config.from_pyfile('config.py')
+app.secret_key = 'the_random_string'
+app.config['SECRET_KEY'] = 'the_random_string'
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///site.db'
+paypalrestsdk.configure({
+    "mode": "sandbox", # sandbox or live
+    "client_id": "AQRjMKnx8b7IM7GGvf6vp-U9A6PUn7G8NbGvqRazU8nFzL_V8Bva0q1kZlqH-bcGE1LdBj2NhELKNYCN",
+    "client_secret":"ELHUEtd3DDQqM20DRZMzV5sAkm6koEh07neMAbYVV1RZB-VsKvnuATKxg9kjRNFSEBn8g6MdaAAMX9ir" 
+})
 db = SQLAlchemy(app)
 migrate = Migrate(app, db)
 login_manager =LoginManager(app)
@@ -37,7 +45,7 @@ class Product(db.Model):
 
 class Order(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id', nullable=False))
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     items = db.relationship('OrderItem', backref='order', lazy=True)
     total_price = db.Column(db.DateTime, default=datetime.utcnow)
     products = db.relationship('OrderProduct', backref='order', lazy=True)
@@ -137,7 +145,7 @@ def logout():
 
 
 
-@app.route('/products', method=['GET', 'POST'])
+@app.route('/products', methods=['GET', 'POST'])
 def products():
     form = ProductForm()
     if form.validate_on_submit():
@@ -286,10 +294,6 @@ def initiate_payment():
 def payment_cancel():
     flash('Payment canceled. Your order has not been processed.')
     return redirect(url_for('view_cart'))
-    
-
-
-
 
 
 @app.route('/add_product', methods=['GET', 'POST'])
@@ -311,7 +315,7 @@ def add_product():
 
     return render_template('add_product.html', form=form)
 
-@app.route('/product/new', methods['GET', 'POST'])
+@app.route('/product/new', methods=['GET', 'POST'])
 @login_required
 def new_product():
     form = ProductForm()
