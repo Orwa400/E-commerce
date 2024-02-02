@@ -103,6 +103,24 @@ class OrderForm(FlaskForm):
 def home():
     return render_template('index.html')
 
+@app.route('/admin')
+@login_required
+def admin():
+    if not current_user.is_admin:
+        flash('Access denied. You must be an admin to view this page.')
+        return redirect(url_for('index'))
+    return render_template('admin.html')
+
+@app.route('/')
+@app.route('/index')
+def index():
+    if current_user.is_authenticated:
+        if current_user.is_admin:
+            return render_template('admin.html')
+        else:
+            return render_template('user.html')
+    return render_template('index.html')
+
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if current_user.is_authenticated:
@@ -110,7 +128,7 @@ def register():
 
     form = RegistrationForm()
     if form.validate_on_submit():
-        hashed_password = generate_password_hash(form.password.data, method='sha256')
+        hashed_password = generate_password_hash(form.password.data, method='pbkdf2:sha256')
         new_user = User(username=form.username.data, email=form.email.data, password=hashed_password)
         db.session.add(new_user)
         db.session.commit()
@@ -126,13 +144,16 @@ def login():
 
     form = LoginForm()
     if form.validate_on_submit():
+        print("Form vlaidated successfully!")
         user = User.query.filter_by(email=form.email.data).first()
         if user and check_password_hash(user.password, form.password.data):
             login_user(user, remember=False)
-            flash('Login successful!', 'succcess')
+            flash('Login successful!', 'success')
             return redirect(url_for('home'))
         else:
             flash('Login unsuccessful. Please check email and password', 'danger')
+    else:
+        print(form.errors)
 
     return render_template('login.html', form=form)
 

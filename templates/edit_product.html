@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Product</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</head>
+<body>
+    <h2>Edit Product</h2>
+    
+    <form action="/edit_product/{{ product.id }}" method="POST">
+        <label for="name">Product Name:</label>
+        <input type="text" id="name" name="name" value="{{ product.name }}" required>
+        <br>
+        <label for="description">Description:</label>
+        <textarea id="description" name="description">{{ product.description }}</textarea>
+        <br>
+        <label for="price">Price:</label>
+        <input type="text" id="price" name="price" value="{{ product.price }}" required>
+        <br>
+        <button type="submit">Save Changes</button>
+    </form>
+    
+    <br>
+    <a href="{{ url_for('products') }}">Back to Products</a>
+</body>
+</html>

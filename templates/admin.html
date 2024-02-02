@@ -1,0 +1,8 @@
+{% extends 'base.html' %}
+
+{% block content %}
+  <h1>Admin Dashboard</h1>
+  <p>Welcome, {{ current_user.username }}!</p>
+  <p><a href="{{ url_for('new_product') }}">New Product</a></p>
+  <p><a href="{{ url_for('logout') }}">Logout</a></p>
+{% endblock %}

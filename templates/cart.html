@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shopping Cart</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+    <script src="https://code.jquery.com/jquery-3.6.4.min.js"></script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</head>
+<body>
+    <h2>Your Shopping Cart</h2>
+    
+    {% for item in cart_items %}
+        <div>
+            <p>{{ item.product.name }} - Quantity: {{ item.quantity }}</p>
+        </div>
+    {% endfor %}
+    
+    <form action="/checkout" method="POST">
+        <button type="submit">Checkout</button>
+    </form>
+    
+    <br>
+    <a href="{{ url_for('home') }}">Back to Home</a>
+</body>
+</html>

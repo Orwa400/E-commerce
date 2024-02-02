@@ -11,11 +11,18 @@
 <body>
     <h1>Login</h1>
     <form action ="/login" method="POST">
+        {{ form.csrf_token }} 
         <label for="username">Username:</label>
         <input type="text" id="username" name="username" required>
+        {% for error in form.username.errors %}
+            <p class="error">{{ error }}</p>
+        {% endfor %}
         <br>
         <label for="password">Password:</label>
         <input type="password" id="password" name="password" required>
+        {% for error in form.password.errors %}
+            <p class="error">{{ error }}</p>
+        {% endfor %}
         <br>
         <button type="submit">Login</button>   
     </form>

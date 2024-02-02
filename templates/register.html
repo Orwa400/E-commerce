@@ -10,15 +10,25 @@
 </head>
 <body>
     <h2>Register</h2>
-    <form action=""/register" method="POST">
+    <form action="/register" method="POST">
+        {{ form.csrf_token }}
         <label for="username">Username:</label>
         <input type="text" id="username" name="username" required>
+        {% for error in form.username.errors %}
+            <p class="error">{{ error }}</p>
+        {% endfor %}
         <br>
         <label for="email">Email:</label>
         <input type="email" id="email" name="email" required>
+        {% for error in form.email.errors %}
+            <p class="error">{{ error }}</p>
+        {% endfor %}
         <br>
         <label for="password">Password:</label>
         <input type="password" id="password" name="password" required>
+        {% for error in form.password.errors %}
+            <p class="error">{{ error }}</p>
+        {% endfor %}
         <br>
         <button type="submit">Register</button>
     </form>
